@@ -166,14 +166,10 @@ def prev_image():
 def show_image():
     if current_image:
         image = current_image.image
-    else:
-        image = blank_image
-
-    canvas.itemconfig(image_container, image=image)
-    canvas_m.itemconfig(image_container_m, image=image)
-    add_label_rectangles()
-    add_label_rectangles_m()
-    # print("Show image:", current_image.number)
+        canvas.itemconfig(image_container, image=image)
+        canvas_m.itemconfig(image_container_m, image=image)
+        add_label_rectangles()
+        add_label_rectangles_m()
 
 def image_tree_changed(e):
     set_current_image()
@@ -277,7 +273,7 @@ def next_unlabelled():
 root = ttk.Window(themename='darkly')
 root.title("Neural Network Trainer")
 root.geometry("1680x880+275+0")
-blank_image = ImageTk.PhotoImage(Image.open("data/blank.png"))
+# blank_image = ImageTk.PhotoImage(Image.open("data/blank.png"))
 
 # root.attributes("-fullscreen", True)
 

@@ -118,8 +118,15 @@ def db_read_all(table="general"):
         print(x)
 
 # ----------------------------
-# ------- Other --------------
+# ------- Set up -------------
 # ----------------------------
+def create_tables():
+    db_create_table()
+    db_create_table_calibration_point()
+    db_create_table_scenes()
+
+# create_tables()
+
 
 # db_read_all("scenes")
 

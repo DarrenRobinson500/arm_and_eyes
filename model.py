@@ -14,7 +14,6 @@ def make_dir(folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-
 def integers(list):
     new_list = []
     for item in list: new_list.append(int(item))
@@ -363,6 +362,10 @@ def write_models_to_file():
     f.close()
 
 def load_models():
+    if not os.path.exists(settings.list_of_models_path):
+        Model(name="Model")
+        return
+
     f = open(settings.list_of_models_path, "r")
     for line in f:
         name = line.strip()
