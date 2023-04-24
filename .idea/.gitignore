@@ -1,0 +1,12 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+/data/
+/models/
+/runs/
+/trash/
+/venv/
+/videos/
+*.png
+*.pt
+*.mp4
