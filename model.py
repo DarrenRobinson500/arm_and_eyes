@@ -1,4 +1,4 @@
-# from ultralytics import YOLO
+from ultralytics import YOLO
 import os
 import shutil
 from datetime import datetime, timedelta
