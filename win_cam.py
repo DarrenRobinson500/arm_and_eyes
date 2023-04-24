@@ -1,6 +1,7 @@
 from model import *
 from scene import *
 from utilities import *
+import inspect
 
 label_ids_1 = []
 
@@ -12,18 +13,28 @@ class App:
         self.window.geometry("2020x800+0+0")
         self.dual = dual
         self.yolo = yolo
+        self.model_active = False
 
         Label(self.window, text=self.name, font=15, bg="blue", fg="white").pack(side=TOP, fill=BOTH)
 
         load_models()
+
+        self.v_x1, self.v_y1, self.v_x2, self.v_y2, self.v_x, self.v_y, self.v_z = DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar()
+        self.coord_variables = [self.v_x1, self.v_y1, self.v_x2, self.v_y2, self.v_x, self.v_y, self.v_z]
 
         self.set_up_frames()
         self.set_up_left_frame()
         self.set_up_buttons()
         self.set_up_video_frame()
         self.set_up_right_frame()
+
         self.update_trees()
         self.set_up_keys()
+
+        # To be removed post testing
+        self.new_calibration_point_initial_set_up()
+        boxes = [[1, 0, 0, 0, 0], [1, 10, 0, 10, 0], [1, 0, 0, 0, 10], [1, 10, 0, 10, 10],]
+        self.update_tree_identified_objects(boxes)
 
         self.window.mainloop()
 
@@ -93,6 +104,18 @@ class App:
             tree.insert(parent='', index='end', iid=str(count), text="Parent", values=item)
         tree.selection_set(current_item_number)
 
+    def update_tree_identified_objects(self, boxes):
+        tree = self.t_identified_objects
+        current_item_number = tree.focus()
+        self.clear_tree(tree)
+        for count, box in enumerate(boxes):
+            class_id, x1, y1, x2, y2 = box
+            if self.model_active:
+                box.extend(self.model.pos(x1, y1, x2, y2))
+                print("Extended box:", box)
+            tree.insert(parent='', index='end', iid=str(count), text="Parent", values=box)
+        tree.selection_set(current_item_number)
+
     def tree_changed(self, e):
         tree = e.widget
         x = tree.selection()
@@ -100,12 +123,12 @@ class App:
         if tree == self.t_model: self.model = get_model(number)
         if tree == self.t_scene: self.scene = get_scene(number)
 
-    def tree_changed_scene(self, e):
-        print("Tree changed: Scene")
-        print(dir(e))
-        x = self.t_scene.selection()
-        number = get_number(x)
-        self.scene = get_scene(number)
+    # def tree_changed_scene(self, e):
+    #     print("Tree changed: Scene")
+    #     print(dir(e))
+    #     x = self.t_scene.selection()
+    #     number = get_number(x)
+    #     self.scene = get_scene(number)
 
     def clear_tree(self, tree):
         for item in tree.get_children():
@@ -138,40 +161,77 @@ class App:
         Button(self.frame_c, text="New Calibration Point", command=self.new_calibration_point).pack(fill=X, expand=True)
 
         self.frame_c_0 = Frame(self.frame_c, width=40, height=80)
-        self.frame_c_0.pack()
-        self.v_x1, self.v_y1, self.v_x2, self.v_y2, self.v_x, self.v_y, self.v_z = DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar()
+        self.frame_c_0.pack(pady=5)
         for count, x in enumerate(("x1", "y1", "x2", "y2", "x", "y", "z")):
             Label(self.frame_c_0, text=x).grid(row=0, column=count)
-            if x == "x1": textvariable = self.v_x1
-            if x == "y1": textvariable = self.v_y1
-            if x == "x2": textvariable = self.v_x2
-            if x == "y2": textvariable = self.v_y2
-            if x == "x": textvariable = self.v_x
-            if x == "y": textvariable = self.v_y
-            if x == "z": textvariable = self.v_z
-            entry = Entry(self.frame_c_0, textvariable=textvariable, width=5)
-            entry.grid(row=1, column=count)
-            # entry.insert(INSERT, "0")
+            if count <= 3:
+                Label(self.frame_c_0, textvariable=self.coord_variables[count], width=5).grid(row=1, column=count)
+            else:
+                Entry(self.frame_c_0, textvariable=self.coord_variables[count], width=5).grid(row=1, column=count)
+
+        v_model_active = StringVar(value="Model Inactive")
+        v_model_active.set("Hello")
+        # print(v_model_active.get())
+        # ttk.Label(self.frame_c, text="text", textvariable=v_model_active, font=('Helvetica', 12)).pack(pady=5, padx=5, fill="x", expand=True)
+        # ttk.Label(self.frame_c, text="new", textvariable=v_model_active, style="TLabel", font=('Helvetica', 12)).pack(pady=5, padx=5, fill="x", expand=True)
 
         self.t_calibration_points = new_tree_complex(
-            frame=self.frame_c, heading="Calibration Points", height=10, columns=("x1", "y1", "x2", "y2", "x", "y", "z"), widths=(30, 30, 30, 30, 30, 30, 30),
+            frame=self.frame_c, heading="Calibration Points", height=10, columns=("x1", "y1", "x2", "y2", "x", "y", "z"), widths=(40, 40, 40, 40, 40, 40, 40),
             command_if_changed=self.calibration_point_selected)
-        if len(self.scene.calibration_points) == 0:
-            self.calibration_point = None
-        else:
-            self.calibration_point = self.scene.calibration_points[0]
+        self.calibration_point = None
 
         self.t_identified_objects = new_tree_complex(
-            frame=self.frame_c, heading="Identified objects", height=10, columns=("Object", "x1", "y1", "x2", "y2", "x", "y", "z"), widths=(60, 30, 30, 30, 30, 30, 30, 30))
+            frame=self.frame_c, heading="Identified objects", height=10, columns=("Object", "x1", "y1", "x2", "y2", "x", "y", "z"), widths=(60, 30, 30, 30, 30, 30, 30, 30),
+            command_if_changed=self.identified_object_selected)
+
+        boxes = [[1, 0, 0, 0, 0], [1, 10, 0, 10, 0], [1, 0, 0, 0, 10], [1, 10, 0, 10, 10],]
+        self.update_tree_identified_objects(boxes)
+
+        # Button(self.frame_c, text="Run Calibration Model", command=self.run_calibration_model).pack(fill=X, expand=True)
 
     def calibration_point_selected(self, e):
         # print("Calibration point selected")
         pass
 
+    def identified_object_selected(self, e):
+        tree = self.t_identified_objects
+        item = tree.focus()
+        # print("Row", tree.item(item))
+        # print("Row Values", tree.item(item)['values'])
+        values = tree.item(item)['values']
+        if len(values) < 5: return
+        for number, var in enumerate(self.coord_variables[0:4], 1):
+            var.set(values[number])
+
+        # print(dir(e))
+        # result = inspect.getmembers(e, lambda a: not (inspect.isroutine(a)))
+        # for x in result:
+        #     print(x)
+
     def new_calibration_point(self):
         values = self.v_x1.get(), self.v_y1.get(), self.v_x2.get(), self.v_y2.get(), self.v_x.get(), self.v_y.get(), self.v_z.get()
         print("New calibration point:", values)
         self.scene.new_calibration_point(self.v_x1.get(), self.v_y1.get(), self.v_x2.get(), self.v_y2.get(), self.v_x.get(), self.v_y.get(), self.v_z.get())
+        self.update_tree_calibration_points()
+
+    def new_calibration_point(self):
+        values = self.v_x1.get(), self.v_y1.get(), self.v_x2.get(), self.v_y2.get(), self.v_x.get(), self.v_y.get(), self.v_z.get()
+        print("New calibration point:", values)
+        self.scene.new_calibration_point(self.v_x1.get(), self.v_y1.get(), self.v_x2.get(), self.v_y2.get(), self.v_x.get(), self.v_y.get(), self.v_z.get())
+        self.update_tree_calibration_points()
+
+    def new_calibration_point_initial_set_up(self):
+        value_set = [
+            ( 0, 0,  0,  0, 0, 0, 0),
+            (10, 0, 10, 10, 10, 0, 0),
+            ( 0, 0,  0, 10, 0, 10, 0),
+            (10, 0, 10, 10, 10, 10, 0),
+        ]
+        for values in value_set:
+            x1, y1, x2, y2, x, y, z = values
+            print("New calibration point:", values)
+            self.model_active = self.scene.new_calibration_point(x1, y1, x2, y2, x, y, z)
+            print("Model active:", self.model_active)
         self.update_tree_calibration_points()
 
     def set_up_keys(self):
