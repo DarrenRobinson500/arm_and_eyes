@@ -50,9 +50,22 @@ def update_tree_images():
         tag = "normal"
         if manual_labels < model_labels: tag = "red"
         if manual_labels > model_labels: tag = "blue"
+        if manual_labels == 0: tag = "green"
         t_image.insert(parent='', index='end', iid=str(item.number), text="Parent", values=(item.name, f"{int(len(item.labels))} {len(item.box_list)}"), tags=tag)
     if current_image:
         t_image.selection_set(current_image.number)
+
+def update_tree_model_log():
+    tree = t_model_log
+    clear_tree(tree)
+    logs = db_read_model_run_log(current_model)
+    for count, log in enumerate(logs):
+        model, date, run, size, epochs, time, map50, map95, folder = log
+        map50 = map_format(map50)
+        map95 = map_format(map95)
+
+        values = (size, run, time_format(time), epochs, map50, map95)
+        tree.insert(parent='', index='end', iid=str(count), text="Parent", values=values)
 
 def clear_tree(tree):
     for item in tree.get_children():
@@ -170,6 +183,7 @@ def show_image():
         canvas_m.itemconfig(image_container_m, image=image)
         add_label_rectangles()
         add_label_rectangles_m()
+        # update_tree_images()
 
 def image_tree_changed(e):
     set_current_image()
@@ -206,7 +220,7 @@ def add_label():
     MyLabel(name=e_name.get(), model=current_model, colour=e_colour.get(), width=int(v_label_w.get()), height=int(v_label_h.get()))
     refresh()
 
-def update_label():
+def save_label():
     current_label.name = e_name.get()
     current_label.colour = e_colour.get()
     current_label.width = int(v_label_w.get())
@@ -230,19 +244,22 @@ def add_model():
     Model(v_model_name.get())
     refresh()
 
-def update_model():
-    current_model.name = v_model_name.get()
-    # current_model.train_path = v_train.get()
-    # current_model.val_path = v_val.get()
-    write_models_to_file()
+def save_model():
+    current_model.save_name(v_model_name.get())
+    current_model.save_size(v_model_size.get())
+    current_model.save_threshold(v_model_threshold.get())
+    current_model.save_epochs(v_model_epochs.get())
+    show_image()
 
 def train_model():
+    save_model() # This just makes sure any udpates on the screen are
     current_model.train()
     update_model_info()
+    update_tree_model_log()
 
 def update_model_info():
-    for count, text in enumerate([f"{current_model.train_time // timedelta(minutes=1)} min", f"{round(float(current_model.map50), 3) * 100}%", f"{round(float(current_model.map95), 3) * 100}%"], 2):
-        Label(frame_3b1, text=str(text), pady=10, padx=10).grid(row=count, column=1, sticky=W)
+    for count, text in enumerate([current_model.time_f(), map_format(current_model.map50), map_format(current_model.map95)], 4):
+        Label(frame_3b1, text=str(text), pady=10, padx=10).grid(row=count + 1, column=1, sticky=W)
     v_video_name.set(current_model.available_videos())
 
 def remove_model():
@@ -262,6 +279,7 @@ def delete_image():
         print(f"Delete image: {filename}")
         current_model.images.remove(image)
         os.remove(filename)
+    current_model.reload_images()
     choose_first_image()
     update_tree_images()
     refresh()
@@ -272,7 +290,7 @@ def next_unlabelled():
 # Main Page
 root = ttk.Window(themename='darkly')
 root.title("Neural Network Trainer")
-root.geometry("1680x880+275+0")
+root.geometry("2020x1000+0+0")
 # blank_image = ImageTk.PhotoImage(Image.open("data/blank.png"))
 
 # root.attributes("-fullscreen", True)
@@ -288,9 +306,9 @@ side_width = 130
 center_width = 1300
 
 # Vertical Frames
-frame_a = Frame(root, width=side_width, height=800)
-frame_b = Frame(root, width=center_width, height=800)
-frame_c = Frame(root, width=side_width, height=800)
+frame_a = Frame(root, width=side_width, height=1000)
+frame_b = Frame(root, width=center_width, height=1000)
+frame_c = Frame(root, width=side_width, height=1000)
 frame_a.pack(side="left")
 frame_b.pack(side="left")
 frame_c.pack(side="left")
@@ -320,15 +338,21 @@ frame_3b2 = Frame(frame_3b)
 frame_3c = Frame(frame_3)
 frame_3c1 = Frame(frame_3c)
 frame_3c2 = Frame(frame_3c)
+frame_3d = Frame(frame_3)
+frame_3d1 = Frame(frame_3d)
+frame_3d2 = Frame(frame_3d)
 frame_3a.pack(side="left", fill="both", expand=True)
 frame_3b.pack(side="left", fill="both", expand=True)
 frame_3c.pack(side="left", fill="both", expand=True)
+frame_3d.pack(side="left", fill="both", expand=True)
 frame_3a1.pack(fill="both", expand=True)
 frame_3a2.pack(side="bottom")
 frame_3b1.pack(fill="both", expand=True)
 frame_3b2.pack(side="bottom")
 frame_3c1.pack(fill="both", expand=True)
 frame_3c2.pack(side="bottom")
+frame_3d1.pack(fill="both", expand=True)
+frame_3d2.pack(side="bottom")
 
 t_label = new_tree(heading="Label", frame=frame_a, height=10, width=150, command_if_changed=tree_changed_label)
 t_model = new_tree(heading="Model", frame=frame_a, height=10, width=150, command_if_changed=tree_changed_model)
@@ -374,35 +398,51 @@ e_name.grid(row=1, column=1)
 e_colour.grid(row=2, column=1)
 s_label_w.grid(row=1, column=3)
 s_label_h.grid(row=2, column=3)
-buttons = [("Add Label", add_label), ("Update Label", update_label), ("Remove Label", remove_label)]
+buttons = [("Add Label", add_label), ("Save Label", save_label), ("Remove Label", remove_label)]
 button_row(buttons, frame_3a2)
 
 # Frame 3b - Model
 ttk.Label(frame_3b1, text="Models", style="primary", font=('Helvetica', 12)).grid(row=0, column=0)
-for count, text in enumerate(["Name:", "Training time:", "Map50:", "Map95:"], 1):
-    Label(frame_3b1, text=text, pady=10, padx=10).grid(row=count, column=0, sticky=W)
+for count, text in enumerate(["Name:", "Size", "Epochs", "Threshold", "Training time:", "Map50:", "Map95:"], 1):
+    Label(frame_3b1, text=text, pady=5, padx=10).grid(row=count, column=0, sticky=W)
 
 v_model_name = StringVar(root)
 e_model_name = Entry(frame_3b1, textvariable=v_model_name)
 e_model_name.grid(row=1, column=1)
 v_model_name.set(current_model.name)
 
-buttons = [("Add Model", add_model), ("Train Model", train_model), ("Remove Model", remove_model)]
+v_model_size = StringVar(root, value=current_model.size)
+ttk.Combobox(frame_3b1, values=["nano", "small", "medium", "large", "x large"], textvariable=v_model_size).grid(row=2, column=1)
+
+v_model_epochs = new_entry_box(frame=frame_3b1, initial_value=current_model.epochs, row=3, column=1)
+v_model_threshold = new_entry_box(frame=frame_3b1, initial_value=current_model.threshold, row=4, column=1)
+
+buttons = [("Add Model", add_model), ("Save Model", save_model)]
 button_row(buttons, frame_3b2)
+buttons = [("Train Model", train_model), ("Remove Model", remove_model)]
+button_row(buttons, frame_3c2)
 
-# Frame 3c - Images
-ttk.Label(frame_3c1, text="Images", style="primary", font=('Helvetica', 12)).grid(row=0, column=0)
+# Frame 3c - Model Log
+# ttk.Label(frame_3c1, text="Model log", style="primary", font=('Helvetica', 12)).grid(row=0, column=0)
+t_model_log = new_tree_complex(frame_3c1, heading="Model Log", height=5, columns=("Size", "Run", "Time", "Epochs", "map50", "map95"), widths=(70, 60, 60, 60, 60, 60))
+update_tree_model_log()
+
+# Frame 3d - Images
+ttk.Label(frame_3d1, text="Images", style="primary", font=('Helvetica', 12)).grid(row=0, column=0)
 for count, text in enumerate(["Name:", ], 1):
-    Label(frame_3c1, text=text, pady=10, padx=10).grid(row=count, column=0, sticky=W)
+    Label(frame_3d1, text=text, pady=10, padx=10).grid(row=count, column=0, sticky=W)
 
-Label(frame_3c1, textvariable=v_image_name, pady=10, padx=10).grid(row=1, column=1, sticky=W)
+Label(frame_3d1, textvariable=v_image_name, pady=10, padx=10).grid(row=1, column=1, sticky=W)
 
 buttons = [("Delete Image", delete_image), ("Next Unlabelled", next_unlabelled)]
-button_row(buttons, frame_3c2)
+button_row(buttons, frame_3d2)
 
 # Frame C - Images
 v_video_name = StringVar(root, value=current_model.available_videos())
 Label(frame_c, textvariable=v_video_name, pady=10).pack()
+
+# def model_size_changed(e):
+#     current_model.save_size(v_model_size.get())
 
 def choose_first_image():
     global current_image
@@ -434,6 +474,7 @@ t_image.tag_configure("evenrow", background="lightblue")
 t_image.bind('<<TreeviewSelect>>', image_tree_changed)
 t_image.tag_configure("red", background="red")
 t_image.tag_configure("blue", background="blue")
+t_image.tag_configure("green", background="green")
 
 def key_stroke(e):
     global v_label_w, v_label_h
@@ -453,10 +494,9 @@ def key_stroke(e):
 def close_win(e):
     root.destroy()
 
-
 # Keystrokes
 root.bind('<KeyPress>', key_stroke)
-
+# root.bind('<<ComboboxSelected>>', model_size_changed)
 root.bind('<Escape>', lambda e: close_win(e))
 
 # Create image container

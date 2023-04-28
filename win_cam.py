@@ -31,6 +31,9 @@ class App:
         self.update_trees()
         self.set_up_keys()
 
+        self.update()
+
+
         # To be removed post testing
         self.new_calibration_point_initial_set_up()
         boxes = [[1, 0, 0, 0, 0], [1, 10, 0, 10, 0], [1, 0, 0, 0, 10], [1, 10, 0, 10, 10],]
@@ -138,7 +141,7 @@ class App:
         self.video0 = VideoCapture(video_source=0)
         self.canvas0 = Canvas(self.frame_1, width=self.video0.width, height=self.video0.height)
         self.video0.set_canvas(self.canvas0)
-        self.canvas0.pack()
+        self.canvas0.pack(side=LEFT)
         self.videos = [self.video0, ]
         if self.dual:
             self.video1 = VideoCapture(video_source=1)
@@ -146,7 +149,6 @@ class App:
             self.video1.set_canvas(self.canvas1)
             self.canvas1.pack(side=LEFT)
             self.videos.append(self.video1, )
-        self.update()
 
     def set_up_buttons(self):
         # Image capture
@@ -214,12 +216,6 @@ class App:
         self.scene.new_calibration_point(self.v_x1.get(), self.v_y1.get(), self.v_x2.get(), self.v_y2.get(), self.v_x.get(), self.v_y.get(), self.v_z.get())
         self.update_tree_calibration_points()
 
-    def new_calibration_point(self):
-        values = self.v_x1.get(), self.v_y1.get(), self.v_x2.get(), self.v_y2.get(), self.v_x.get(), self.v_y.get(), self.v_z.get()
-        print("New calibration point:", values)
-        self.scene.new_calibration_point(self.v_x1.get(), self.v_y1.get(), self.v_x2.get(), self.v_y2.get(), self.v_x.get(), self.v_y.get(), self.v_z.get())
-        self.update_tree_calibration_points()
-
     def new_calibration_point_initial_set_up(self):
         value_set = [
             ( 0, 0,  0,  0, 0, 0, 0),
@@ -243,24 +239,27 @@ class App:
     def capture_image(self):
         is_open0, frame_cv0, frame0 = self.video0.get_frame(model=self.model, record=False)
         if is_open0:
-            filename = self.model.get_next_save_file()
+            filename = self.model.get_next_save_file("A")
             cv2.imwrite(filename, frame_cv0)
         if self.dual:
             is_open1, frame_cv1, frame1 = self.video1.get_frame(model=self.model, record=False)
             if is_open1:
-                filename = self.model.get_next_save_file()
+                filename = self.model.get_next_save_file("B")
                 cv2.imwrite(filename, frame_cv1)
 
     def update(self):
         recording = self.v_recording.get() == "Recording"
         is_open0, frame_cv0, frame0 = self.video0.get_frame(self.model, record=recording)
+        boxes = []
+
         if is_open0:
             self.frame0 = ImageTk.PhotoImage(image=Image.fromarray(frame0))
             self.canvas0.create_image(0, 0, image=self.frame0, anchor=NW)
             if self.yolo:
-                boxes = self.model.boxes_live(frame_cv0)
+                boxes0 = self.model.boxes_live(frame_cv0)
                 for id in self.video0.labels: self.canvas0.delete(id)
-                for class_id, x1, y1, x2, y2 in boxes:
+                for class_id, x1, y1, x2, y2 in boxes0:
+                    boxes.append((class_id, (x1 + x2) // 2, (y1 + y2) // 2, 0, 0))
                     label = self.model.get_label(class_id)
                     if label is None: label = self.model.get_label(0)
                     label_id = self.canvas0.create_rectangle(x1, y1, x2, y2, outline=label.colour, width=2)
@@ -271,16 +270,19 @@ class App:
                 self.frame1 = ImageTk.PhotoImage(image=Image.fromarray(frame1))
                 self.canvas1.create_image(0, 0, image=self.frame1, anchor=NW)
                 if self.yolo:
-                    boxes = self.model.boxes_live(frame_cv1)
+                    boxes1 = self.model.boxes_live(frame_cv1)
                     # print(boxes)
                     for id in self.video1.labels: self.canvas1.delete(id)
-                    for class_id, x1, y1, x2, y2 in boxes:
+                    for class_id, x1, y1, x2, y2 in boxes1:
+                        boxes.append((class_id, 0, 0, (x1 + x2) // 2, (y1 + y2) // 2))
                         label = self.model.get_label(class_id)
                         if label is None: label = self.model.get_label(0)
                         label_id = self.canvas1.create_rectangle(x1, y1, x2, y2, outline=label.colour, width=2)
                         self.video1.labels.append(label_id)
 
-        self.window.after(1, self.update)
+        self.update_tree_identified_objects(boxes)
+
+        self.window.after(2000, self.update)
 
     def update_class_based(self):
         recording = self.v_recording.get() == "Recording"
@@ -331,4 +333,4 @@ class VideoCapture:
     def __del__(self):
         self.vid.release()
 
-App(dual=False, yolo=False)
+App(dual=True, yolo=True)

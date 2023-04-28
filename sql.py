@@ -58,6 +58,31 @@ def db_read_time(name, variable):
     return delta
 
 # ---------------------------------------
+# ------- Model Run Log ---- ------------
+# ---------------------------------------
+
+def db_create_table_model_run_log():
+    db_str = "CREATE TABLE model_run_log(model TEXT, date datetime, run INTEGER, size TEXT, epochs INTEGER, time FLOAT, map50 FLOAT, map95 FLOAT, folder TEXT)"
+    db(db_str)
+
+def db_write_model_run_log(model, date, run, size, epochs, time, map50, map95):
+    folder = f"runs/detect/train{run}"
+    db(f"INSERT INTO model_run_log VALUES ('{model}', '{date}', {run}, '{size}', {epochs}, {time}, {map50}, {map95}, '{folder}')")
+
+def db_read_model_run_log(model):
+    db_str = f"SELECT * FROM model_run_log WHERE model='{model}'"
+    runs = db(db_str)
+    result = []
+    for model, date, run, size, epochs, time, map50, map95, folder in runs:
+        date = datetime.fromisoformat(date).date()
+        result.append((model, date, run, size, epochs, time, map50, map95, folder))
+    return result
+
+def db_delete_model_run_log(model, run):
+    db_str = f"DELETE from model_run_log where model='{model}' and run={run})"
+    db(db_str)
+
+# ---------------------------------------
 # ------- Calibration Points ------------
 # ---------------------------------------
 
@@ -102,10 +127,6 @@ def db_write_scenes(scene):
 def db_read_scenes():
     return db("SELECT * FROM scenes")
 
-def db_delete_calibration_point(scene, x1, y1, x2, y2, x, y, z):
-    db_str = f"DELETE from calibration_point where scene='{scene}' and x1={x1} and y1={y1} and x2={x2} and y2={y2} and x={x} and y={y} and z={z})"
-    db(db_str)
-
 
 # ----------------------------
 # ------- Other --------------
@@ -122,12 +143,16 @@ def db_read_all(table="general"):
 # ----------------------------
 def create_tables():
     db_create_table()
+    db_create_table_model_run_log()
     db_create_table_calibration_point()
     db_create_table_scenes()
 
 # create_tables()
+# db_delete_table("model_run_log")
+# db_create_table_model_run_log()
 
 
-# db_read_all("scenes")
+
+# db_read_all()
 
 # db_create_table_scenes()

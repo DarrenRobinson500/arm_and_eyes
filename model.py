@@ -3,12 +3,22 @@ import os
 import shutil
 from datetime import datetime, timedelta
 now = datetime.now
+from utilities import *
+
 from images import *
 from labels import *
-from sql import *
-import numpy as np
+from run import *
 
 models = []
+
+'''
+Things to add to model
+ - Configurable model size
+ - Configurable threshold
+ - Model train log that retains (model size, epochs, training time, mAP50, mAP95, training number)
+'''
+
+
 
 def make_dir(folder):
     if not os.path.exists(folder):
@@ -28,6 +38,7 @@ class Model:
         self.number = len(models)
         self.name = name
         self.labels = []
+        self.runs = []
 
         # Folders and Paths
         self.video_folder = "videos/" + self.name
@@ -47,17 +58,23 @@ class Model:
             self.source_folder, self.source_folder_images, self.source_folder_labels, self.model_folder,
             self.model_folder_labels, self.model_folder_images, self.video_folder, self.video_folder_done,
         ]
-        self.map50 = db_read(self.name, "map50")
-        self.map95 = db_read(self.name, "map95")
-        self.train_time = timedelta(minutes=0)
-        # self.train_time = db_read_time(self.name, "train_time")
 
         models.append(self)
         if initial_setup:
             self.create_folders()
             write_models_to_file()
+            self.save_size("medium")
+            self.save_threshold(0.5)
+            self.save_epochs(200)
+            self.time = 0
+            self.map50 = 0
+            self.map95 = 0
+        else:
+            self.load_details()
+
         self.images = []
-        self.initiate_images()
+        self.load_images()
+        self.load_runs()
         self.initiate_labels()
         self.load_boxes()
 
@@ -75,6 +92,16 @@ class Model:
         print("Model folder (labels): ", self.model_folder_labels)
         print("Model path:            ", self.model_path)
         print("YAML path:             ", self.yaml_path)
+
+    def load_details(self):
+        self.size = db_read(self.name, "size")
+        epochs = db_read(self.name, "epochs")
+        if epochs: self.epochs = int(epochs)
+        else: self.epochs = None
+        self.threshold = db_read(self.name, "threshold")
+        self.map50 = db_read(self.name, "map50")
+        self.map95 = db_read(self.name, "map95")
+        self.time = db_read(self.name, "time")
 
     def get_first_image(self):
         if len(self.images) > 0:
@@ -132,17 +159,22 @@ class Model:
             print("Load videos:", source, destination)
             shutil.move(source, destination)
             video_count += 1
-        self.initiate_images()
+        self.load_images()
 
-    def initiate_images(self):
+    def load_images(self):
         make(self.source_folder_images)
         image_names = os.listdir(self.source_folder_images)
         for number in range(len(image_names)):
             self.images.append(OwnImage(number, self, image_names))
-        # if len(self.images) == 0:
-        #     blank_image = np.zeros((100, 100, 3), np.uint8)
-        #     cv2.imwrite(self.source_folder_images + '/blank.png', blank_image)
-        #     return
+
+    def load_runs(self):
+        runs = db_read_model_run_log(self)
+        for run in runs:
+            self.runs.append(Run(self, run))
+
+    def reload_images(self):
+        self.images = []
+        self.load_images()
 
     def get_image(self, number):
         result = next((x for x in self.images if x.number == number), None)
@@ -150,6 +182,10 @@ class Model:
 
     def get_image_name(self, name):
         result = next((x for x in self.images if x.name == name), None)
+        return result
+
+    def get_run(self, number):
+        result = next((x for x in self.runs if x.number == number), None)
         return result
 
     def get_next_image(self, image):
@@ -232,17 +268,20 @@ class Model:
         print("Start:", start_time)
         self.set_up_data()
         self.create_yaml()
-        yolo_model = YOLO("yolov8m.pt")
+        letter = self.size[0]
+        yolo_model = YOLO(f"yolov8{letter}.pt")
         # for x in range(15):
         #     yolo_model.layers[x].trainable = False
-        yolo_model.train(data=f"{self.yaml_path}", batch=2, imgsz=640, epochs=200, workers=0)
-        self.save_model()
+        yolo_model.train(data=f"{self.yaml_path}", batch=2, imgsz=640, epochs=self.epochs, workers=0, patience=200)
         self.save_boxes()
-        self.train_time = now() - start_time
-        print("End:", now())
-        print("Train time:", self.train_time)
+        time = now() - start_time
+        time = round(time.seconds / 60, 2)
+        self.save_model(time)
 
-    def save_model(self):
+        print("End:", now())
+        print("Train time:", self.time)
+
+    def save_model(self, time):
         directory = "runs/detect/"
         subdirectories = os.listdir(directory)
         max = 0
@@ -253,13 +292,78 @@ class Model:
         destination = self.model_path
         shutil.copy(source_model, destination)
         print(f"Saved {source_model} to {destination}")
-        self.save_model_details(source_csv)
+        map50, map95 = self.get_map(source_csv)
+        self.save_map(map50, map95)
+        self.save_time(time)
 
-    def get_next_save_file(self):
+        db_write_model_run_log(self.name, now(), max, self.size, self.epochs, time, map50, map95)
+
+    def get_map(self, source):
+        final_line = open(source).readlines()[-1].split(",")
+        map50 = final_line[6].strip()
+        map95 = final_line[7].strip()
+        return map50, map95
+
+    def time_f(self):
+        if self.time:
+            time = "%.1f" % self.time
+            return f"{time} min"
+        else:
+            return ""
+
+    def map50_f(self):
+        return map_format(self.map50)
+
+    def map95_f(self):
+        return f"{round(float(self.map95), 3) * 100}%"
+
+    def save_name(self, value):
+        self.name = value
+        write_models_to_file()
+
+    def save_size(self, value):
+        self.size = value
+        db_update(self.name, "size", value, "string")
+
+    def save_epochs(self, value):
+        self.epochs = int(value)
+        db_update(self.name, "epochs", value, "float")
+
+    def save_threshold(self, value):
+        self.threshold = float(value)
+        db_update(self.name, "threshold", value, "float")
+        self.delete_boxes()
+
+    def save_time(self, value):
+        self.time = value
+        db_update(self.name, "time", value, "float")
+
+    def save_map(self, map50, map95):
+        db_update(self.name, "map50", map50, "float")
+        db_update(self.name, "map95", map95, "float")
+
+    def delete_boxes(self):
+        print("Saving boxes:", self, self.boxes_path)
+        f = open(self.boxes_path, "w")
+        f.truncate(0)
+        f.close()
+
+    def save_boxes(self):
+        f = open(self.boxes_path, "w")
+        self.delete_boxes()
+        for image in self.images:
+            image.box_list = []
+            self.boxes(image)
+            for id, x1, y1, x2, y2 in image.box_list:
+                line = f"{image.name}, {id}, {x1}, {y1}, {x2}, {y2}"
+                f.write(f"{line}\n")
+        f.close()
+
+    def get_next_save_file(self, prefix):
         files = os.listdir(self.source_folder_images)
         max = -1
         for file in files:
-            if file[0] == "x":
+            if file[0] == prefix:
                 result = file[2:-4]
                 result = int(result)
                 if result > max: max = result
@@ -268,32 +372,10 @@ class Model:
                     if result > max: max = result
                 except:
                     pass
-        return f"{self.source_folder_images}/x_{max + 1}.png"
-
-
+        return f"{self.source_folder_images}/{prefix}_{max + 1}.png"
 
     def exists(self):
         return os.path.exists(self.model_path)
-
-    def save_model_details(self, source):
-        final_line = open(source).readlines()[-1].split(",")
-        self.map50 = final_line[6].strip()
-        self.map95 = final_line[7].strip()
-        db_update(self.name, "map50", self.map50, "float")
-        db_update(self.name, "map95", self.map95, "float")
-        db_update(self.name, "train_time", self.train_time, "string")
-
-    def save_boxes(self):
-        print("Saving boxes:", self, self.boxes_path)
-        f = open(self.boxes_path, "w")
-        f.truncate(0)
-        for image in self.images:
-            image.box_list = []
-            self.boxes(image)
-            for id, x1, y1, x2, y2 in image.box_list:
-                line = f"{image.name}, {id}, {x1}, {y1}, {x2}, {y2}"
-                f.write(f"{line}\n")
-        f.close()
 
     def load_boxes(self):
         if not os.path.exists(self.boxes_path): return
@@ -323,7 +405,7 @@ class Model:
         class_ids = result.cls.cpu().numpy().astype(int)
         image.box_list = []
         for box, confidence, class_id in zip(boxes, confidences, class_ids):
-            if confidence > 0.40:
+            if confidence > self.threshold:
                 x1, y1, x2, y2 = integers(box)
                 w, h = x2 - x1, y2 - y1
                 image.box_list.append((class_id, x1 + w // 2, y1 + h // 2, x2 + w // 2, y2 + h // 2))

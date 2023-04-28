@@ -17,7 +17,15 @@ def write(widget, text):
     widget.delete(0, END)
     widget.insert(0, text)
 
-def new_tree(heading, frame, height, width, command_if_changed):
+def new_entry_box(frame, initial_value, row, column):
+    variable = StringVar(frame)
+    e_model_name = Entry(frame, textvariable=variable)
+    e_model_name.grid(row=row, column=column)
+    variable.set(initial_value)
+    return variable
+
+
+def new_tree(heading, frame, height, width, command_if_changed, side="top"):
     f_tree = Frame(frame)
     f_tree.pack(pady=10, padx=10)
     s_tree = Scrollbar(f_tree)
@@ -29,15 +37,15 @@ def new_tree(heading, frame, height, width, command_if_changed):
     tree.column("Name", anchor=W, width=width)
     tree.heading("#0", text="")
     tree.heading("Name", text=heading, anchor=W)
-    tree.pack()
+    tree.pack(side=side)
     tree.tag_configure("oddrow", background="white")
     tree.tag_configure("evenrow", background="lightblue")
     tree.bind('<<TreeviewSelect>>', command_if_changed)
     trees.append(tree)
     return tree
 
-def new_tree_complex(frame, heading, height, columns, widths, command_if_changed=None):
-    print("Making new tree:", heading, height)
+def new_tree_complex(frame, heading, height, columns, widths, command_if_changed=None, side="top"):
+    # print("Making new tree:", heading, height)
     ttk.Label(frame, text=heading, style="primary", font=('Helvetica', 12)).pack(pady=10, )
     f_tree = Frame(frame)
     f_tree.pack(pady=10, padx=10)
@@ -52,7 +60,7 @@ def new_tree_complex(frame, heading, height, columns, widths, command_if_changed
     for name, width in zip(columns, widths):
         tree.column(name, anchor=W, width=width)
         tree.heading(name, text=name, anchor=W)
-    tree.pack()
+    tree.pack(side=side)
     if command_if_changed: tree.bind('<<TreeviewSelect>>', command_if_changed)
     tree.tag_configure("red", background="red")
     tree.tag_configure("blue", background="blue")
@@ -63,4 +71,20 @@ def get_number(x):
         return 0
     else:
         return int(x[0])
+
+def map_format(x):
+    return "%.3f" % x
+
+def time_format(x):
+    if x:
+        x = "%.1f" % x
+        return f"{x} min"
+    else:
+        return ""
+
+def clear_tree(tree):
+    for item in tree.get_children():
+        tree.delete(item)
+
+
 
