@@ -14,18 +14,20 @@ class App:
         self.dual = dual
         self.yolo = yolo
         self.model_active = False
+        self.update_delay = 1
 
-        Label(self.window, text=self.name, font=15, bg="blue", fg="white").pack(side=TOP, fill=BOTH)
+        if not self.yolo:
+            ttk.Label(self.window, text="YOLO Disabled", style='danger.Inverse.TLabel', justify="center").pack(side=TOP, fill=BOTH)
 
         load_models()
 
-        self.v_x1, self.v_y1, self.v_x2, self.v_y2, self.v_x, self.v_y, self.v_z = DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar(), DoubleVar()
+        self.v_x1, self.v_y1, self.v_x2, self.v_y2, self.v_x, self.v_y, self.v_z = IntVar(), IntVar(), IntVar(), IntVar(), IntVar(), IntVar(), IntVar()
         self.coord_variables = [self.v_x1, self.v_y1, self.v_x2, self.v_y2, self.v_x, self.v_y, self.v_z]
 
         self.set_up_frames()
         self.set_up_left_frame()
         self.set_up_buttons()
-        self.set_up_video_frame()
+        self.set_up_video_frame() # including setting up videos
         self.set_up_right_frame()
 
         self.update_trees()
@@ -35,9 +37,9 @@ class App:
 
 
         # To be removed post testing
-        self.new_calibration_point_initial_set_up()
-        boxes = [[1, 0, 0, 0, 0], [1, 10, 0, 10, 0], [1, 0, 0, 0, 10], [1, 10, 0, 10, 10],]
-        self.update_tree_identified_objects(boxes)
+        # self.new_calibration_point_initial_set_up()
+        # boxes = [[1, 0, 0, 0, 0], [1, 10, 0, 10, 0], [1, 0, 0, 0, 10], [1, 10, 0, 10, 10],]
+        # self.update_tree_identified_objects(boxes)
 
         self.window.mainloop()
 
@@ -113,8 +115,9 @@ class App:
         self.clear_tree(tree)
         for count, box in enumerate(boxes):
             class_id, x1, y1, x2, y2 = box
+            print("Model Active:", self.model_active)
             if self.model_active:
-                box.extend(self.model.pos(x1, y1, x2, y2))
+                box.extend(self.scene.pos(x1, y1, x2, y2))
                 print("Extended box:", box)
             tree.insert(parent='', index='end', iid=str(count), text="Parent", values=box)
         tree.selection_set(current_item_number)
@@ -144,7 +147,7 @@ class App:
         self.canvas0.pack(side=LEFT)
         self.videos = [self.video0, ]
         if self.dual:
-            self.video1 = VideoCapture(video_source=1)
+            self.video1 = VideoCapture(video_source=2)
             self.canvas1 = Canvas(self.frame_1, width=self.video1.width, height=self.video1.height)
             self.video1.set_canvas(self.canvas1)
             self.canvas1.pack(side=LEFT)
@@ -213,7 +216,7 @@ class App:
     def new_calibration_point(self):
         values = self.v_x1.get(), self.v_y1.get(), self.v_x2.get(), self.v_y2.get(), self.v_x.get(), self.v_y.get(), self.v_z.get()
         print("New calibration point:", values)
-        self.scene.new_calibration_point(self.v_x1.get(), self.v_y1.get(), self.v_x2.get(), self.v_y2.get(), self.v_x.get(), self.v_y.get(), self.v_z.get())
+        self.model_active = self.scene.new_calibration_point(self.v_x1.get(), self.v_y1.get(), self.v_x2.get(), self.v_y2.get(), self.v_x.get(), self.v_y.get(), self.v_z.get())
         self.update_tree_calibration_points()
 
     def new_calibration_point_initial_set_up(self):
@@ -230,8 +233,19 @@ class App:
             print("Model active:", self.model_active)
         self.update_tree_calibration_points()
 
+    def key_stroke(self, e):
+        if e.keysym == "Delete":
+            tree = self.t_calibration_points
+            x = tree.selection()
+            number = get_number(x)
+            print(number)
+            print(self.scene.calibration_points[number])
+            self.scene.calibration_points.pop(number)
+            self.update_tree_calibration_points()
+
     def set_up_keys(self):
         self.window.bind('<Escape>', lambda e: self.exit(e))
+        self.t_calibration_points.bind('<KeyPress>', self.key_stroke)
 
     def exit(self, e):
         self.window.destroy()
@@ -249,40 +263,62 @@ class App:
 
     def update(self):
         recording = self.v_recording.get() == "Recording"
-        is_open0, frame_cv0, frame0 = self.video0.get_frame(self.model, record=recording)
-        boxes = []
+        result = self.video0.get_frame(self.model, record=recording)
+        boxes, boxes0, boxes1 = [], None, None
+        if result:
+            is_open0, frame_cv0, frame0 = result
 
-        if is_open0:
-            self.frame0 = ImageTk.PhotoImage(image=Image.fromarray(frame0))
-            self.canvas0.create_image(0, 0, image=self.frame0, anchor=NW)
-            if self.yolo:
-                boxes0 = self.model.boxes_live(frame_cv0)
-                for id in self.video0.labels: self.canvas0.delete(id)
-                for class_id, x1, y1, x2, y2 in boxes0:
-                    boxes.append((class_id, (x1 + x2) // 2, (y1 + y2) // 2, 0, 0))
-                    label = self.model.get_label(class_id)
-                    if label is None: label = self.model.get_label(0)
-                    label_id = self.canvas0.create_rectangle(x1, y1, x2, y2, outline=label.colour, width=2)
-                    self.video0.labels.append(label_id)
-        if self.dual:
-            is_open1, frame_cv1, frame1 = self.video1.get_frame(self.model, record=recording)
-            if is_open1:
-                self.frame1 = ImageTk.PhotoImage(image=Image.fromarray(frame1))
-                self.canvas1.create_image(0, 0, image=self.frame1, anchor=NW)
+            if is_open0:
+                self.frame0 = ImageTk.PhotoImage(image=Image.fromarray(frame0))
+                self.canvas0.create_image(0, 0, image=self.frame0, anchor=NW)
                 if self.yolo:
-                    boxes1 = self.model.boxes_live(frame_cv1)
-                    # print(boxes)
-                    for id in self.video1.labels: self.canvas1.delete(id)
-                    for class_id, x1, y1, x2, y2 in boxes1:
-                        boxes.append((class_id, 0, 0, (x1 + x2) // 2, (y1 + y2) // 2))
+                    boxes0 = self.model.boxes_live(frame_cv0)
+                    for id in self.video0.labels: self.canvas0.delete(id)
+                    for class_id, x1, y1, x2, y2 in boxes0:
+                        boxes.append((class_id, (x1 + x2) // 2, (y1 + y2) // 2, 0, 0))
                         label = self.model.get_label(class_id)
                         if label is None: label = self.model.get_label(0)
-                        label_id = self.canvas1.create_rectangle(x1, y1, x2, y2, outline=label.colour, width=2)
-                        self.video1.labels.append(label_id)
+                        label_id = self.canvas0.create_rectangle(x1, y1, x2, y2, outline=label.colour, width=2)
+                        self.video0.labels.append(label_id)
+        if self.dual:
+            result = self.video1.get_frame(self.model, record=recording)
+            if result:
+                is_open1, frame_cv1, frame1 = result
+                if is_open1:
+                    self.frame1 = ImageTk.PhotoImage(image=Image.fromarray(frame1))
+                    self.canvas1.create_image(0, 0, image=self.frame1, anchor=NW)
+                    if self.yolo:
+                        boxes1 = self.model.boxes_live(frame_cv1)
+                        # print(boxes)
+                        for id in self.video1.labels: self.canvas1.delete(id)
+                        for class_id, x1, y1, x2, y2 in boxes1:
+                            boxes.append((class_id, 0, 0, (x1 + x2) // 2, (y1 + y2) // 2))
+                            label = self.model.get_label(class_id)
+                            if label is None: label = self.model.get_label(0)
+                            label_id = self.canvas1.create_rectangle(x1, y1, x2, y2, outline=label.colour, width=2)
+                            self.video1.labels.append(label_id)
 
-        self.update_tree_identified_objects(boxes)
+        if boxes0 and boxes1:
+            boxes = self.combine_boxes(boxes0, boxes1)
+            self.update_tree_identified_objects(boxes)
+        else:
+            clear_tree(self.t_identified_objects)
 
-        self.window.after(2000, self.update)
+        self.window.after(self.update_delay, self.update)
+
+    def combine_boxes(self, boxes0, boxes1):
+        boxes0 = get_box_centers(boxes0)
+        boxes1 = get_box_centers(boxes1)
+        boxes0 = sorted(boxes0, key=lambda x: x[1])
+        boxes1 = sorted(boxes1, key=lambda x: x[1])
+
+        boxes = []
+        for box0, box1 in zip(boxes0, boxes1):
+            class0, x0, y0 = box0
+            class1, x1, y1 = box1
+            boxes.append([class0, x0, y0, x1, y1])
+
+        return boxes
 
     def update_class_based(self):
         recording = self.v_recording.get() == "Recording"
@@ -307,6 +343,7 @@ class App:
 class VideoCapture:
     def __init__(self, video_source):
         self.vid = cv2.VideoCapture(video_source)
+        # print(dir(self.vid))
         self.name = f"Camera {video_source}"
         self.width = self.vid.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT)

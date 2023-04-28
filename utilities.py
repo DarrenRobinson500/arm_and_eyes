@@ -86,5 +86,11 @@ def clear_tree(tree):
     for item in tree.get_children():
         tree.delete(item)
 
+def get_box_centers(boxes):
+    result = []
+    for box in boxes:
+        class_id, x1, y1, x2, y2 = box
+        result.append((class_id, (x1 + x2) // 2, (y1 + y2) // 2))
+    return result
 
 

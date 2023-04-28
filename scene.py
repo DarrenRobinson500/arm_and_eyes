@@ -33,6 +33,8 @@ class Scene:
         self.calibration_points.append((x1, y1, x2, y2, x, y, z))
         db_write_calibration_point(self.name, x1, y1, x2, y2, x, y, z)
         self.calibrate()
+        print("New calibration point:", len(self.calibration_points), len(self.calibration_points) >= 4)
+        return len(self.calibration_points) >= 4
 
     def get_model_inputs(self, x1, y1, x2, y2):
         d = 100
@@ -61,9 +63,9 @@ class Scene:
     def pos(self, x1, y1, x2, y2):
         input = self.get_model_inputs(x1, y1, x2, y2)
         input = np.array(input).reshape(1, -1)
-        x = model_x.predict(input)[0]
-        y = model_y.predict(input)[0]
-        z = model_z.predict(input)[0]
+        x = int(self.model_x.predict(input)[0])
+        y = int(self.model_y.predict(input)[0])
+        z = int(self.model_z.predict(input)[0])
 
         x, y, z = rounded([x, y, z])
 

@@ -249,6 +249,7 @@ class Model:
         line4 = f"names: {self.label_names()}"
         for x in [line1, line2, line3, line4]:
             f.write(f"{x}\n")
+        f.close()
 
     def set_up_data(self):
         make(self.model_folder)
