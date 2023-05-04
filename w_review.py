@@ -10,7 +10,7 @@ from matplotlib.figure import Figure
 data_names = ["epoch", "box_loss", "class_loss", "dfl_loss", "precision", "recall", "map50", "map95", "val_box_loss",
               "val_class_loss", "val_dfl_loss", "pg0", "pg1", "pg2"]
 
-class App_Train:
+class App_Review:
     def __init__(self):
         self.name = "View Training Progress"
         self.window = ttk.Window(themename='litera')
@@ -134,5 +134,5 @@ class App_Train:
 
 # print(plt.style.available)
 
-App_Train()
+App_Review()
 

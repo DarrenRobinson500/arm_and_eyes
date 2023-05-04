@@ -1,0 +1,16 @@
+/yolov8l.pt
+/yolov8m.pt
+/yolov8n.pt
+/yolov8s.pt
+
+/shelf/
+/workspace.xml
+/data/
+/models/
+/runs/
+/trash/
+/venv/
+/videos/
+*.png
+*.pt
+*.mp4
