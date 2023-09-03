@@ -11,15 +11,6 @@ from run import *
 
 models = []
 
-'''
-Things to add to model
- - Configurable model size
- - Configurable threshold
- - Model train log that retains (model size, epochs, training time, mAP50, mAP95, training number)
-'''
-
-
-
 def make_dir(folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -45,9 +36,9 @@ class Model:
         self.video_folder_done = "videos/" + self.name + "/done"
         self.source_folder = "data/" + self.name
         self.source_folder_images = self.source_folder + "/images"
-        self.source_folder_labels = self.source_folder + "/labels"
-        self.list_of_labels_path = self.source_folder + "/labels/list_of_labels.txt"
         self.model_folder = "models/" + self.name
+        self.source_folder_labels = self.source_folder + "/labels"
+        self.list_of_labels_path = self.model_folder + "/list_of_labels.txt"
         self.model_folder_images = self.model_folder + "/images"
         self.model_folder_labels = self.model_folder + "/labels"
         self.model_path = self.model_folder + "/" + self.name + ".pt"
@@ -72,10 +63,10 @@ class Model:
         else:
             self.load_details()
 
+        self.initiate_labels()
         self.images = []
         self.load_images()
         self.load_runs()
-        self.initiate_labels()
         self.load_boxes()
 
     def __str__(self):
@@ -194,6 +185,35 @@ class Model:
         else:
             return self.get_image(image.number + 1)
 
+    def get_next_unlabelled_image(self, image):
+        if image.number >= len(self.images):
+            print("A")
+            return image
+        else:
+            print("B")
+            orig_image = image
+            while True:
+                image = self.get_image(image.number + 1)
+                print(image.image_file, len(image.labels), image.number, len(self.images))
+                if len(image.labels) == 0:
+                    print("Has no labels")
+                    return image
+                if image.number >= len(self.images):
+                    return orig_image
+
+    def labelled_images(self):
+        count = 0
+        for image in self.images:
+            if image.has_label(): count += 1
+        return count
+
+    def total_images(self):
+        return len(self.images)
+
+    def image_count(self):
+        percent = int(self.labelled_images() / self.total_images() * 100)
+        return f"{self.labelled_images()} / {self.total_images()} ({percent}%)"
+
     def get_prev_image(self, image):
         if image.number <= 0:
             return image
@@ -203,7 +223,7 @@ class Model:
     def initiate_labels(self):
         path = self.list_of_labels_path
         if not os.path.exists(path):
-            print(f"No labels file for:{self}. Creating one")
+            print(f"No labels file for:{self}. Creating label object:")
             MyLabel(name="Label", model=self, colour="white", width=30, height=40)
             return
 
@@ -373,7 +393,14 @@ class Model:
                     if result > max: max = result
                 except:
                     pass
-        return f"{self.source_folder_images}/{prefix}_{max + 1}.png"
+        number = max + 1
+        if number < 10: number = "00" + str(number)
+        elif number < 100: number = "0" + str(number)
+        # elif number < 100: number = "0" + str(number)
+        else: number = str(number)
+        result = f"{self.source_folder_images}/{prefix}_{number}.png"
+        print("File Name for next save: ", result)
+        return result
 
     def exists(self):
         return os.path.exists(self.model_path)
@@ -400,7 +427,7 @@ class Model:
             return image.box_list
         # print("Boxes", image)
         model = YOLO(self.model_path)
-        result = model(image.image_cv2)[0].boxes
+        result = model(image.image_cv2, verbose=False)[0].boxes
         boxes = result.xyxy.cpu().numpy()
         confidences = result.conf.cpu().numpy()
         class_ids = result.cls.cpu().numpy().astype(int)
@@ -414,7 +441,7 @@ class Model:
 
     def boxes_live(self, image):
         model = YOLO(self.model_path)
-        result = model(image)[0].boxes
+        result = model(image, verbose=False)[0].boxes
 
         boxes = result.xyxy.cpu().numpy()
         confidences = result.conf.cpu().numpy()
@@ -464,6 +491,9 @@ def delete_model(model):
     model.delete_folders()
     models.remove(model)
     write_models_to_file()
+
+
+
 
 # for model in models:
 #     print(model.image_directory)

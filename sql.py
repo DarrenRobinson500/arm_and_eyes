@@ -90,7 +90,8 @@ def db_create_table_calibration_point():
     db_str = "CREATE TABLE calibration_point(scene TEXT, x1 FLOAT, y1 FLOAT, x2 FLOAT, y2 FLOAT, x FLOAT, y FLOAT, z FLOAT)"
     db(db_str)
 
-def db_write_calibration_point(scene, x1, y1, x2, y2, x, y, z):
+def db_write_calibration_point(scene, data):
+    x1, y1, x2, y2, x, y, z = data
     # Check if existing
     db_str = f"SELECT * FROM calibration_point WHERE scene='{scene}' and x1={x1} and y1={y1} and x2={x2} and y2={y2} and x={x} and y={y} and z={z}"
     if len(db(db_str)) == 0:
@@ -109,6 +110,10 @@ def db_read_calibration_points(scene):
 
 def db_delete_calibration_point(scene, x1, y1, x2, y2, x, y, z):
     db_str = f"DELETE from calibration_point where scene='{scene}' and x1={x1} and y1={y1} and x2={x2} and y2={y2} and x={x} and y={y} and z={z})"
+    db(db_str)
+
+def db_clear_calibration_points(scene):
+    db_str = f"DELETE from calibration_point where scene='{scene}'"
     db(db_str)
 
 # ---------------------------
@@ -151,8 +156,12 @@ def create_tables():
 # db_delete_table("model_run_log")
 # db_create_table_model_run_log()
 
+# db_clear_calibration_points()
+db_read_calibration_points("Scene A")
+db_read_calibration_points("Scene")
 
 
+# print(db_read_scenes())
 # db_read_all()
 
 # db_create_table_scenes()

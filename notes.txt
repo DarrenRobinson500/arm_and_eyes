@@ -1,6 +1,8 @@
 As on Jun-2022, the current version of pytorch is compatible with cudatoolkit=11.3 whereas
 the current cuda toolkit version = 11.7.
 
+# pip install infi.devicemanager
+
 Solution:
  - Uninstall Pytorch for a fresh installation. You cannot install an old version on top of a new version without force installation
      (using pip install --upgrade --force-reinstall <package_name>.

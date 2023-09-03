@@ -30,7 +30,12 @@ class App_Review:
 
         # self.print_runs()
 
+        for image in self.model.images:
+            image.get_label_list()
+            # print(image.image_file)
+
         self.window.mainloop()
+
 
     def print_runs(self):
         for run in self.model.runs:

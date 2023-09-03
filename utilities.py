@@ -10,7 +10,7 @@ trees = []
 
 def button_row(buttons, frame):
     for text, command in buttons:
-        new_button = ttk.Button(frame, text=text, command=command, width=13)
+        new_button = ttk.Button(frame, text=text, command=command, width=15)
         new_button.pack(side="left", padx=5, pady=5)
 
 def write(widget, text):
@@ -26,8 +26,9 @@ def new_entry_box(frame, initial_value, row, column):
 
 
 def new_tree(heading, frame, height, width, command_if_changed, side="top"):
+    ttk.Label(frame, text=heading, style="primary", font=('Helvetica', 12)).pack(anchor=NW, pady=10)
     f_tree = Frame(frame)
-    f_tree.pack(pady=10, padx=10)
+    f_tree.pack(pady=10, padx=10, anchor=NW)
     s_tree = Scrollbar(f_tree)
     s_tree.pack(side=RIGHT, fill=Y)
     tree = ttk.Treeview(f_tree, height=height, yscrollcommand=s_tree.set, selectmode="extended")
@@ -46,9 +47,9 @@ def new_tree(heading, frame, height, width, command_if_changed, side="top"):
 
 def new_tree_complex(frame, heading, height, columns, widths, command_if_changed=None, side="top"):
     # print("Making new tree:", heading, height)
-    ttk.Label(frame, text=heading, style="primary", font=('Helvetica', 12)).pack(pady=10, )
+    ttk.Label(frame, text=heading, style="primary", font=('Helvetica', 12)).pack(anchor=NW, pady=10)
     f_tree = Frame(frame)
-    f_tree.pack(pady=10, padx=10)
+    f_tree.pack(pady=10, padx=10, anchor=NW)
     s_tree = Scrollbar(f_tree)
     s_tree.pack(side=RIGHT, fill=Y)
     
@@ -60,7 +61,7 @@ def new_tree_complex(frame, heading, height, columns, widths, command_if_changed
     for name, width in zip(columns, widths):
         tree.column(name, anchor=W, width=width)
         tree.heading(name, text=name, anchor=W)
-    tree.pack(side=side)
+    tree.pack(side=side, anchor=NW)
     if command_if_changed: tree.bind('<<TreeviewSelect>>', command_if_changed)
     tree.tag_configure("red", background="red")
     tree.tag_configure("blue", background="blue")

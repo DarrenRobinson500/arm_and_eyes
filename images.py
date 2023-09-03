@@ -19,6 +19,9 @@ class OwnImage():
         self.labels = []
         self.load_labels()
         self.box_list = []
+
+        # for label in self.labels:
+        #     print("Labels:", self.model, self.name, label)
         # images.append(self)
 
     def __str__(self):
@@ -26,6 +29,18 @@ class OwnImage():
 
     def include_in_training(self):
         return len(self.labels) > 0
+
+    def has_label(self):
+        return len(self.labels) > 0
+
+    def get_label_list(self):
+        label_list = []
+        for label in self.labels:
+            # print(label[0])
+            result = label[0]
+            if result not in label_list: label_list.append(result)
+        # print(self.label_path, label_list)
+        return label_list
 
     def add_label(self, class_id, x1, y1, x2, y2, w, h):
         x0, y0, w0, h0 = round(x1 / w, 3), round(y1 / h, 3), round((x2 - x1) / w, 3), round((y2 - y1) / h, 3)
@@ -55,9 +70,21 @@ class OwnImage():
             return
 
         f = open(self.label_path, "r")
+        available_labels = []
+        for label in self.model.labels:
+            # print(type(label))
+            available_labels.append(int(label.number))
+        # print("Available labels:", available_labels)
+
         for line in f:
             label_no, x, y, w, h = line.strip().split()
+            label_no = int(label_no)
             self.labels.append((int(label_no), float(x), float(y), float(w), float(h)))
+
+            result = label_no in available_labels
+            if not result:
+                print(f"Label validation for '{self.image_file}':", label_no, result)
+            # print(f"Label validation for '{self.image_file}':", label_no, result)
 
 
     # def delete_label(self, number):
@@ -72,5 +99,6 @@ class OwnImage():
             label = str(label)[1:-1].replace(",", "")
             f.write(f"{label}\n")
         f.close()
+
 
 # blank = OwnImage(0, None, ["blank"])
