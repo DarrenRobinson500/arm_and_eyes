@@ -111,13 +111,13 @@ class Win_Train:
         self.var_delete.set('0')
 
     def set_up_headings(self):
-        self.v_label_name = tkinter.StringVar()
+        self.v_label_name = StringVar()
         self.l_label_name = Label(self.frame_0a, textvariable=self.v_label_name, font="Calibri 24 bold")
         self.l_label_name.pack(side="left")
-        self.v_image_name = tkinter.StringVar()
+        self.v_image_name = StringVar()
         self.l_image_name = Label(self.frame_0b, textvariable=self.v_image_name, font="Calibri 24 bold")
         self.l_image_name.pack(side="left")
-        self.v_image_count = tkinter.StringVar()
+        self.v_image_count = StringVar()
         self.l_image_count = Label(self.frame_0c, textvariable=self.v_image_count, font="Calibri 24 bold")
         self.l_image_count.pack(side="left")
 
@@ -328,9 +328,9 @@ class Win_Train:
                 print("Label Filter")
                 to_show = self.image_filter in item.get_label_list()
 
-            print("Update tree images:", item, "Filter selected:", self.image_filter, "Labels on image:", item.get_label_list(), "To show:", to_show)
-            if len(item.get_label_list()) > 0:
-                print(type(self.image_filter), type(item.get_label_list()[0]))
+            # print("Update tree images:", item, "Filter selected:", self.image_filter, "Labels on image:", item.get_label_list(), "To show:", to_show)
+            # if len(item.get_label_list()) > 0:
+            #     print(type(self.image_filter), type(item.get_label_list()[0]))
             if to_show:
                 tree.insert(parent='', index='end', iid=str(item.number), text="Parent", values=(item.name, f"{int(len(item.labels))} {len(item.box_list)}"), tags=tag)
         if self.image:

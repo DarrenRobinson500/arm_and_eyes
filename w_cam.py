@@ -40,7 +40,6 @@ class App:
         self.update_trees()
         self.set_up_keys()
 
-
         self.model_active = (len(self.scene.calibration_points) >= 4)
 
         if self.arm_connected:
@@ -513,7 +512,6 @@ class App:
                         label_id = self.canvas0.create_rectangle(x1, y1, x2, y2, outline=label.colour, width=2)
                         video.labels.append(label_id)
         return box_array
-
 
     def get_head_coords(self):
         result = self.cam_0.get_frame(self.model, record=False)

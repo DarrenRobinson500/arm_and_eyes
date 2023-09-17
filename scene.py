@@ -11,14 +11,23 @@ def rounded(vars):
         result.append(round(var, 1))
     return result
 
+class Point:
+    def __init__(self, data):
+        print(data)
+        self.data = data
+        self.x1, self.y1, self.x2, self.y2, self.x, self.y, self.z = data
+        print("Created point:", self.data)
+
 class CalibrationPoint:
     def __init__(self, scene, data):
+        self.number = len(scene.calibration_points)
         self.scene = scene
         self.data = data
         self.x1, self.y1, self.x2, self.y2, self.x, self.y, self.z = data
         self.error = -1
         self.data_and_error = list(self.data)
         self.data_and_error.append(self.error)
+        self.values = self.data_and_error
 
     def __str__(self):
         return str(self.data_and_error)

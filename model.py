@@ -15,11 +15,6 @@ def make_dir(folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-def integers(list):
-    new_list = []
-    for item in list: new_list.append(int(item))
-    return new_list
-
 def delete_files(folder):
     for filename in os.listdir(folder):
         os.remove(folder + "/" + filename)
@@ -384,7 +379,7 @@ class Model:
         files = os.listdir(self.source_folder_images)
         max = -1
         for file in files:
-            if file[0] == prefix:
+            if file[0] == str(prefix):
                 result = file[2:-4]
                 result = int(result)
                 if result > max: max = result

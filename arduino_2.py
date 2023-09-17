@@ -1,4 +1,15 @@
 import serial.tools.list_ports
+from math import sin, cos, radians, atan, pi, acos, sqrt
+
+base_h = 100
+base_v = 100
+end_h = 80
+end_v = -90
+l1 = 50
+l2 = 218
+l3 = 250
+
+
 serial_1 = serial.Serial()
 
 def get_port():
@@ -60,7 +71,7 @@ def command(text):
             reason = "Starts with p but doesn't have 4 elements"
         else:
             command, m0, m1, m2 = text_elements
-            print(command, m0, m1, m2)
+            print("Command to arduino:", command, m0, m1, m2)
             m0, m1, m2 = int(m0), int(m1), int(m2)
             if m1 > 800:
                 reason = f"M1 being asked to move beyond 800 ({m1})"
@@ -74,53 +85,32 @@ def command(text):
         print("Requested command:", text)
         print("Not sending command:", reason)
 
-# get_port()
-# wait_for_homing()
+def get_angles(x, y, z):
+    z = z - base_v - end_v
+    angle_1 = atan(y/x)
+    angle_1_degrees = angle_1 * 360 / (2 * pi)
+    angle_1_pulses = int(angle_1_degrees * 1000 / 90 + 1500)
 
-# Prescribed movements
-# for x in range(400, 600, 50):
-#     for y in range(-100, 100, 50):
-#         result = get_angles(x, y, 30)
-#         print(result_to_text(result))
-#         command(result_to_text(result))
-        # time.sleep(.25)
+    reach_v = z
+    reach_h_inc_adj = sqrt(x * x + y * y)
+    reach_h = reach_h_inc_adj - (base_h + end_h)
+    reach_2 = reach_v * reach_v + reach_h * reach_h
+    reach = sqrt(reach_2)
 
-# Free range movements
-# finished = False
-# while not finished:
-#     text = input("m1 m2 m3: ")
-#     if text == "":
-#         finished = True
-#     else:
-#         angles = text.split(" ")
-#         text = "p " + text
-#         get_pos(float(angles[0]), float(angles[1]), float(angles[2]))
-#         # print(text)
-#         command(text)
+    reach_angle = atan(reach_v / reach_h)
 
+    beta = acos((l2 * l2 + reach_2 - l3 * l3) / (2 * l2 * reach))
+    angle_2 = pi / 2 - beta - reach_angle
+    angle_2_degrees = angle_2 * 360 / (2 * pi)
+    angle_2_pulses = int(angle_2_degrees * 1000 / 90)
 
+    angle_c = cosine_angle(reach, l2, l3)
+    angle_3_degrees = 360 - angle_c - (180 - angle_2_degrees)
+    angle_3_pulses = int(angle_3_degrees * 1000 / 90 - 500)
+    return angle_1_pulses, angle_2_pulses, angle_3_pulses
 
-# command("p 1200 200 200")
-# for m0 in range(0, 2501, 500):
-#     for m1 in range(0, 601, 200):
-#         for m2 in range(m1, 801, 200):
-#             text = f"p {m0} {m1} {m2}"
-#
-#             print(text)
-#             command(text)
-#
-# print("Finished")
+def cosine_angle(a, b, c):
+    return acos((b * b + c * c - a * a) / (2 * b * c)) * 360 / (2 * pi)
 
-serial_1.close()
-
-# Position, angles, position: [440, 0, 40] => [1500.0, 237.7, 986.5] => [440.0, -0.0, 40.0]
-# Position, angles, position: [440, -20, 40] => [1471.0, 238.7, 986.0] => [440.0, -20.1, 40.0]
-# Position, angles, position: [440, -40, 40] => [1442.3, 241.8, 984.6] => [440.0, -40.0, 40.0]
-# Position, angles, position: [440, -60, 40] => [1413.2, 244.2, 988.6] => [437.4, -60.0, 38.6]
-# Position, angles, position: [440, -80, 40] => [1452.4, 240.3, 985.3] => [439.9, -33.0, 40.0]
-# Position, angles, position: [440, -100, 40] => [1357.7, 262.9, 974.4] => [440.0, -100.0, 40.2]
-# Position, angles, position: [440, -120, 40] => [1330.5, 274.2, 969.4] => [440.0, -120.0, 40.0]
-# Position, angles, position: [440, -140, 40] => [1303.9, 287.0, 963.0] => [440.0, -140.0, 40.0]
-# Position, angles, position: [440, -160, 40] => [1280.2, 298.5, 954.0] => [440.0, -158.3, 40.9]
-# Position, angles, position: [440, -180, 40] => [1252.8, 318.1, 946.6] => [440.0, -180.0, 40.0]
-
+def result_to_text(result):
+    return "p " + str(round(result[0],0)) + " " + str(round(result[1],0)) + " " + str(round(result[2],0))

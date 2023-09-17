@@ -19,22 +19,23 @@ def add_model_to_excel(scene):
     row = start_row
 
     for model in [scene.model_x, scene.model_y, scene.model_z]:
-        sheet.cell(start_row - 1, column).value = model.intercept_
-        for coef in model.coef_:
-            sheet.cell(row, column).value = coef
-            row += 1
-        column += 1
-        row = start_row
+        if model:
+            sheet.cell(start_row - 1, column).value = model.intercept_
+            for coef in model.coef_:
+                sheet.cell(row, column).value = coef
+                row += 1
+            column += 1
+            row = start_row
     wb.save(file)
     wb.close()
 
-def add_points_to_excel(points):
+def add_points_to_excel(points, start_column=7):
     file = "excel/xyz.xlsx"
     wb = xl.load_workbook(file)
     sheet = wb['main']
     start_row = 5
     row = start_row
-    column = 7
+    column = start_column
     for point in points:
         sheet.cell(row - 2, column).value = 100
         sheet.cell(row - 1, column).value = 1
